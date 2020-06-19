@@ -1,0 +1,166 @@
+---
+title: "Banana Notebook"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+
+# Libraries
+
+```{r echo=F}
+
+library(openxlsx)
+library(janitor)
+library(dplyr)
+library(ggplot2)
+library(scico)
+
+```
+
+# Load data
+
+Data corresponding to the query "banana" in [icite](icite.od.nih.gov) using default settings ([link](https://icite.od.nih.gov/analysis?search_id=mc7z4yeqq4ozzjoa)).
+
+```{r}
+
+bananaDF <- read.xlsx(
+    xlsxFile = "resources/infl_report.xlsx"
+) %>%
+    clean_names() %>%
+    filter(
+        !is.na(nih_percentile)
+    )
+
+```
+
+Add expected percentiles per decade and difference between expected and measured.
+
+```{r}
+
+bananaDF %>%
+    mutate(
+        decade = round(year/10) * 10
+    ) %>%
+    arrange(
+        decade, nih_percentile
+    ) %>%
+    group_by(
+        decade
+    ) %>%
+    mutate(
+        expected_percentile = 100 * rank(nih_percentile)/n(),
+        percentile_difference = nih_percentile - expected_percentile,
+        decade = factor(decade)
+    ) -> bananaDF
+
+
+```
+
+Percentile percentile plot
+
+```{r}
+
+ggplot(
+    data = bananaDF
+    ) +
+    geom_abline(
+        intercept = 0,
+        slope = 1,
+        linetype = "dashed"
+    ) +
+    geom_line(
+        mapping = aes(
+            x = expected_percentile,
+            y = nih_percentile,
+            col = decade
+        )
+    ) + 
+    scale_x_continuous(
+        name = "Expected percentile",
+        limits = c(-5, 105),
+        expand = c(0, 0)
+    ) + 
+    scale_y_continuous(
+        name = "NIH percentile",
+        limits = c(-5, 105),
+        expand = c(0, 0)
+    ) + 
+    scale_color_manual(
+        name = "Decade",
+        values = scico(
+            n = length(levels(bananaDF$decade)),
+            palette = "lajolla",
+            begin = 0.2,
+            end = 0.8,
+            direction = -1
+        )
+    ) +
+    theme_bw(base_size = 16)
+
+
+```
+
+Plot densities & box.
+
+```{r}
+
+ggplot(
+    data = bananaDF
+) + 
+    geom_violin(
+        mapping = aes(
+            x = decade,
+            y = percentile_difference,
+            fill = decade
+        ),
+        col = NA,
+        alpha = 0.2
+    ) + 
+    geom_boxplot(
+        mapping = aes(
+            x = decade,
+            y = percentile_difference,
+            fill = decade,
+            col = decade
+        ),
+        alpha = 0.2,
+        width = 0.1
+    ) +
+    scale_fill_manual(
+        values = scico(
+            n = length(levels(bananaDF$decade)),
+            palette = "lajolla",
+            begin = 0.2,
+            end = 0.8,
+            direction = -1
+        )
+    ) +
+    scale_color_manual(
+        values = scico(
+            n = length(levels(bananaDF$decade)),
+            palette = "lajolla",
+            begin = 0.2,
+            end = 0.8,
+            direction = -1
+        )
+    ) +
+    ylab("Percentile Difference") +
+    theme(
+        legend.position = "none",
+        axis.title.x = element_blank()
+    ) +
+    theme_bw(base_size = 16)
+
+
+```
+
+# R session info
+
+```{r}
+
+sessionInfo()
+
+```
+
